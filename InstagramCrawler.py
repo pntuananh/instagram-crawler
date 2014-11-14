@@ -21,6 +21,8 @@ ENTITY_TYPES = ['image', 'user'] #, 'follow']
 MAX_N_ITEM = 10000
 TO_FLUSH = 100
 
+SLEEP = 0.75
+
 #regions = {
 #        'NYC': {
 #            'lat1' : 40.54406959,
@@ -54,6 +56,7 @@ class InstagramCrawler():
         self.redirect_uri = 'https://www.ntu.edu.sg/'
 
         self.conn = {}
+        self.access_token = None
         self.access_token = self.get_token_access()
 
         self.seen = {}
@@ -102,11 +105,17 @@ class InstagramCrawler():
 
         thread.start_new_thread(self.display, ())
 
-    def request(self, method='GET', host=HOST, path='', headers={}, data=None):
+    def request(self, method='GET', host=HOST, path='', headers={}, params={}, data=None):
         if host not in self.conn:
             self.conn[host] = httplib.HTTPSConnection(host)
 
         conn = self.conn[host]
+
+        if self.access_token:
+            params['access_token'] = self.access_token
+        if params:
+            path += '%s?%s' % (path, urllib.urlencode(params))
+
 
         if method == 'POST' and data:
             conn.request(method, path, body=data, headers=headers)
@@ -118,18 +127,23 @@ class InstagramCrawler():
         res_headers = {k:v for k,v in r.getheaders()}
         content = r.read()
 
-        time.sleep(1)
+        time.sleep(SLEEP)
         
-        return r.status, res_headers, content
+        return r.status, r.reason, res_headers, content
 
 
     def get_token_access(self):
         print 'Requesting token access...',
 
-        path = '/oauth/authorize/?client_id=%s&redirect_uri=%s&response_type=code' % (self.client_id, urllib.quote(self.redirect_uri))
+        path = '/oauth/authorize/' % (self.client_id, urllib.quote(self.redirect_uri))
+        params = {
+                'client_id' : self.client_id,
+                'redirect_uri' : urllib.quote(self.redirect_uri),
+                'response_type' : 'code',
+                }
         self.headers = {}
 
-        status, r_headers, content = self.request('GET', path=path, headers=self.headers)
+        status, reason, r_headers, content = self.request('GET', path=path, params=params, headers=self.headers)
 
         url = r_headers['location']
         path = url[url.find('/', 8):]
@@ -137,7 +151,7 @@ class InstagramCrawler():
         csrftoken = r_headers['set-cookie'].split('csrftoken=')[1].split(';')[0]
         self.headers['Cookie'] = 'csrftoken=%s' % csrftoken
 
-        status, r_headers, content = self.request('GET', path=path, headers=self.headers)
+        status, reason, r_headers, content = self.request('GET', path=path, headers=self.headers)
 
         mid = r_headers['set-cookie'].split("mid=")[1].split(";")[0]
         self.headers['Cookie'] += '; mid=%s' % mid
@@ -145,7 +159,7 @@ class InstagramCrawler():
         self.headers['Referer'] = url 
         data = 'csrfmiddlewaretoken=%s&username=pntuananh&password=swordfish' % csrftoken
 
-        status, r_headers, content = self.request('POST', path=path, headers=self.headers, data=data)
+        status, reason, r_headers, content = self.request('POST', path=path, headers=self.headers, data=data)
         
         url = r_headers['location']
         path = url[url.find('/', 8):]
@@ -155,12 +169,17 @@ class InstagramCrawler():
         sessionid = cookie.split('sessionid=')[1].split(';')[0]
         self.headers['Cookie'] += '; sessionid=%s' % sessionid
 
-        status, r_headers, content = self.request('GET', path=path, headers=self.headers)
+        status, reason, r_headers, content = self.request('GET', path=path, headers=self.headers)
 
-        path = '/oauth/authorize/?client_id=%s&redirect_uri=%s&response_type=code' % (self.client_id, urllib.quote(self.redirect_uri))
+        path = '/oauth/authorize/'
+        params = {
+                'client_id' : self.client_id,
+                'redirect_uri' : urllib.quote(self.redirect_uri),
+                'response_type' : 'code',
+                }
         data = 'csrfmiddlewaretoken=%s&allow=Authorize' % csrftoken
 
-        status, r_headers, content = self.request('POST', path=path, headers=self.headers, data=data)
+        status, reason, r_headers, content = self.request('POST', path=path, headers=self.headers, params=params, data=data)
 
         url = r_headers['location']
         code = url.split('code=')[1]
@@ -175,7 +194,7 @@ class InstagramCrawler():
 
         path = '/oauth/access_token'
 
-        status, r_headers, content = self.request('POST', host=API_HOST, path=path, data=urllib.urlencode(client_params))
+        status, reason, r_headers, content = self.request('POST', host=API_HOST, path=path, data=urllib.urlencode(client_params))
 
         js =  json.loads(content)
 
@@ -263,7 +282,7 @@ class InstagramCrawler():
     #            }
 
     #    path = '%s?%s' % (MEDIA_SEARCH, urllib.urlencode(params))
-    #    status, r_headers, content = self.request('GET', host=API_HOST, path=path, headers=self.headers)
+    #    status, reason, r_headers, content = self.request('GET', host=API_HOST, path=path, headers=self.headers)
 
     #    js = json.loads(content)
 
@@ -283,11 +302,14 @@ class InstagramCrawler():
         for foursquare_image_id in list_foursquare_venues:
             instagram_image_id = self.get_instagram_image_id(foursquare_image_id)
 
-            path = next_path =  '%s/%s/media/recent?access_token=%s&min_timestamp=%d&max_timestamp=%d' % \
-                    (LOCATION_SEARCH, instagram_image_id, self.access_token, start_timestamp, end_timestamp)
+            path = '%s/%s/media/recent' % (LOCATION_SEARCH, instagram_image_id)
+            params = {
+                    'min_timestamp' : start_timestamp,
+                    'max_timestamp' : end_timestamp,
+                    }
 
             while True:
-                status, r_headers, content = self.request('GET', host=API_HOST, path=next_path, headers=self.headers)
+                status, reason, r_headers, content = self.request('GET', host=API_HOST, path=path, params=params, headers=self.headers)
 
                 try:
                     js = json.loads(content)
@@ -300,6 +322,8 @@ class InstagramCrawler():
                     break
 
                 for image in js['data']:
+                    if image['type'] != 'image': continue
+
                     if not self.handle_image(image):
                         continue
 
@@ -311,13 +335,14 @@ class InstagramCrawler():
                     break
                 
                 next_max_id = js['pagination']['next_max_id']
-                next_path = '%s&max_id=%s' % (path, next_max_id)
+                #next_path = '%s&max_id=%s' % (path, next_max_id)
+                params['max_id'] = next_max_id
 
 
     def get_instagram_image_id(self, foursquare_image_id):
         path = '%s/search?access_token=%s&foursquare_v2_id=%s' % (LOCATION_SEARCH, self.access_token,foursquare_image_id)
 
-        status, r_headers, content = self.request('GET', host=API_HOST, path=path, headers=self.headers)
+        status, reason, r_headers, content = self.request('GET', host=API_HOST, path=path, headers=self.headers)
 
         if status != 200:
             return ''
@@ -348,11 +373,14 @@ class InstagramCrawler():
         if self.is_seen_before('user', user_id):
             return False
 
-        path = next_path =  '%s/%s/media/recent?access_token=%s&min_timestamp=%d&max_timestamp=%d' % \
-                (USER_INFO, user_id, self.access_token, start_timestamp, end_timestamp)
+        path = '%s/%s/media/recent' % (USER_INFO, user_id)
+        params = {
+                'min_timestamp' : start_timestamp,
+                'max_timestamp' : end_timestamp,
+                }
 
         while True:
-            status, r_headers, content = self.request('GET', host=API_HOST, path=next_path, headers=self.headers)
+            status, reason, r_headers, content = self.request('GET', host=API_HOST, path=path, params=params, headers=self.headers)
 
             try:
                 js = json.loads(content)
@@ -370,14 +398,15 @@ class InstagramCrawler():
                 break
             
             next_max_id = js['pagination']['next_max_id']
-            next_path = '%s&max_id=%s' % (path, next_max_id)
+            #next_path = '%s&max_id=%s' % (path, next_max_id)
+            params['max_id']= next_max_id
 
         return True
 
         
         ## get user info
-        #path = '%s/%s?access_token=%s' % (USER_INFO, user_id, self.access_token)
-        #status, r_headers, content = self.request('GET', host=API_HOST, path=path, headers=self.headers)
+        #path = '%s/%s' % (USER_INFO, user_id)
+        #status, reason ,r_headers, content = self.request('GET', host=API_HOST, path=path, headers=self.headers)
 
         #js = json.loads(content)
         #code = js['meta']['code']
@@ -388,10 +417,10 @@ class InstagramCrawler():
         #self.write('user', json.dumps(user))
 
         ## get user's followers
-        #path = first_path = '%s/%s/follows?access_token=%s' % (USER_INFO, user_id, self.access_token)
+        #path = first_path = '%s/%s/follows' % (USER_INFO, user_id)
 
         #while True:
-        #    status, r_headers, content = self.request('GET', host=API_HOST, path=path, headers=self.headers)
+        #    status, reason, r_headers, content = self.request('GET', host=API_HOST, path=path, headers=self.headers)
 
         #    try:
         #        js = json.loads(content)
