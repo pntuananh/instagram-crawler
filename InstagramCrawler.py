@@ -55,13 +55,11 @@ class InstagramCrawler():
         self.client_secret = '5980acbbca814e4f94c3ff19beef7673'
         self.redirect_uri = 'https://www.ntu.edu.sg/'
 
-        self.conn = {}
-        self.access_token = None
-        self.access_token = self.get_token_access()
-
         self.seen = {}
         self.nu = {}
         self.files = {}
+
+        self.conn = {}
 
         print 'Reload:', reload
         for typ in ENTITY_TYPES:
@@ -103,9 +101,14 @@ class InstagramCrawler():
         if not os.path.exists(IMAGE_DIR):
             os.makedirs(IMAGE_DIR)
 
-        thread.start_new_thread(self.display, ())
+        self.prev_time = time.time()
+        self.get_token_access()
+        #thread.start_new_thread(self.display, ())
+
 
     def request(self, method='GET', host=HOST, path='', headers={}, params={}, data=None):
+        self.display()
+
         if host not in self.conn:
             self.conn[host] = httplib.HTTPSConnection(host)
 
@@ -114,36 +117,45 @@ class InstagramCrawler():
         if self.access_token:
             params['access_token'] = self.access_token
         if params:
-            path += '%s?%s' % (path, urllib.urlencode(params))
+            path = '%s?%s' % (path, urllib.urlencode(params))
 
 
-        if method == 'POST' and data:
-            conn.request(method, path, body=data, headers=headers)
-        else:
-            conn.request(method, path, headers=headers)
+        retry = 3
+        while retry:
+            try:
+                if method == 'POST' and data:
+                    conn.request(method, path, body=data, headers=headers)
+                else:
+                    conn.request(method, path, headers=headers)
 
-        r = conn.getresponse()
+                r = conn.getresponse()
 
-        res_headers = {k:v for k,v in r.getheaders()}
-        content = r.read()
+                res_headers = {k:v for k,v in r.getheaders()}
+                content = r.read()
 
-        time.sleep(SLEEP)
-        
-        return r.status, r.reason, res_headers, content
+                time.sleep(SLEEP)
+                
+                return r.status, r.reason, res_headers, content
+            except Exception, e:
+                print e
+                self.log_error(str(e))
+                retry -= 1
+                time.sleep(5)
+                del self.conn[host]
+                #self.conn[host] = httplib.HTTPSConnection(host)
+                self.get_token_access()
+
+        return -1, '', '', ''
 
 
     def get_token_access(self):
         print 'Requesting token access...',
 
-        path = '/oauth/authorize/' % (self.client_id, urllib.quote(self.redirect_uri))
-        params = {
-                'client_id' : self.client_id,
-                'redirect_uri' : urllib.quote(self.redirect_uri),
-                'response_type' : 'code',
-                }
+        self.access_token = None
+        path = '/oauth/authorize/?client_id=%s&redirect_uri=%s&response_type=code' % (self.client_id, urllib.quote(self.redirect_uri)) 
         self.headers = {}
 
-        status, reason, r_headers, content = self.request('GET', path=path, params=params, headers=self.headers)
+        status, reason, r_headers, content = self.request('GET', path=path, headers=self.headers)
 
         url = r_headers['location']
         path = url[url.find('/', 8):]
@@ -171,15 +183,10 @@ class InstagramCrawler():
 
         status, reason, r_headers, content = self.request('GET', path=path, headers=self.headers)
 
-        path = '/oauth/authorize/'
-        params = {
-                'client_id' : self.client_id,
-                'redirect_uri' : urllib.quote(self.redirect_uri),
-                'response_type' : 'code',
-                }
+        path = '/oauth/authorize/?client_id=%s&redirect_uri=%s&response_type=code' % (self.client_id, urllib.quote(self.redirect_uri))
         data = 'csrfmiddlewaretoken=%s&allow=Authorize' % csrftoken
 
-        status, reason, r_headers, content = self.request('POST', path=path, headers=self.headers, params=params, data=data)
+        status, reason, r_headers, content = self.request('POST', path=path, headers=self.headers, data=data)
 
         url = r_headers['location']
         code = url.split('code=')[1]
@@ -200,7 +207,7 @@ class InstagramCrawler():
 
         print 'Done'
 
-        return js['access_token']
+        self.access_token = js['access_token']
 
 
     def open_file(self, prefix, index, mode='w'):
@@ -223,7 +230,7 @@ class InstagramCrawler():
                 self.log_error('%s - %s' % (url, str(e)))
 
         if image:
-            directory = IMAGE_DIR + filename[:5]
+            directory = IMAGE_DIR + filename[:3]
             if not os.path.exists(directory):
                 os.makedirs(directory)
             
@@ -340,9 +347,10 @@ class InstagramCrawler():
 
 
     def get_instagram_image_id(self, foursquare_image_id):
-        path = '%s/search?access_token=%s&foursquare_v2_id=%s' % (LOCATION_SEARCH, self.access_token,foursquare_image_id)
+        path = '%s/search' % LOCATION_SEARCH
+        params = {'foursquare_v2_id' : foursquare_image_id}
 
-        status, reason, r_headers, content = self.request('GET', host=API_HOST, path=path, headers=self.headers)
+        status, reason, r_headers, content = self.request('GET', host=API_HOST, path=path, params=params, headers=self.headers)
 
         if status != 200:
             return ''
@@ -460,14 +468,16 @@ class InstagramCrawler():
 
 
     def display(self):
-        while True:
+        curr_time = time.time()
+        if curr_time - self.prev_time > 5:
             print time.ctime()
             print 'Downloaded images:', len(self.seen['image']) #self.nu['image']
             print 'Downloaded users:', len(self.seen['user']) #self.nu['user']
             #print 'Downloaded friendship:', self.nu['follow']
             
             print '' 
-            time.sleep(5)
+
+            self.prev_time = curr_time
 
 
 if __name__ == "__main__":        
@@ -481,3 +491,4 @@ if __name__ == "__main__":
 
     InstagramCrawler(reload=reload).get_images_by_venues(list_foursquare_venues)
 
+    sys.exit()
