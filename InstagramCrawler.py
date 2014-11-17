@@ -1,4 +1,4 @@
-import httplib, urllib, urllib2
+import httplib, urllib, urllib2, socket
 import myjson as json
 import time, datetime
 import os, thread, glob
@@ -22,6 +22,8 @@ MAX_N_ITEM = 10000
 TO_FLUSH = 100
 
 SLEEP = 0.75
+TIMEOUT = 60
+socket.setdefaulttimeout(TIMEOUT)
 
 #regions = {
 #        'NYC': {
@@ -80,10 +82,9 @@ class InstagramCrawler():
                                 self.seen[typ].add(js['id'])
                             elif typ == 'user':
                                 self.seen[typ].add(js['data']['user']['id'])
+                            self.nu[typ] += 1
                         except:
                             pass
-
-                        self.nu[typ] += 1
 
                     max_index = max(max_index, index)
 
@@ -110,7 +111,7 @@ class InstagramCrawler():
         self.display()
 
         if host not in self.conn:
-            self.conn[host] = httplib.HTTPSConnection(host)
+            self.conn[host] = httplib.HTTPSConnection(host,timeout=TIMEOUT)
 
         conn = self.conn[host]
 
@@ -272,7 +273,6 @@ class InstagramCrawler():
     #            lon = lon1
     #            while lon <= lon2:
     #                self.get_images_by_region_and_time(s_ts, e_ts, lat, lon)
-
 
     #                lon += delta_lon
     #            lat += delta_lat
