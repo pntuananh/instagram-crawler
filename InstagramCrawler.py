@@ -231,7 +231,7 @@ class InstagramCrawler():
                 self.log_error('%s - %s' % (url, str(e)))
 
         if image:
-            directory = IMAGE_DIR + filename[:3]
+            directory = IMAGE_DIR + filename[:2]
             if not os.path.exists(directory):
                 os.makedirs(directory)
             
