@@ -62,6 +62,7 @@ class InstagramCrawler():
         self.files = {}
 
         self.conn = {}
+        self.venues = 0
 
         print 'Reload:', reload
         for typ in ENTITY_TYPES:
@@ -70,7 +71,7 @@ class InstagramCrawler():
             if not reload:
                 self.files[typ] = self.open_file(typ, 0)
             else:
-                print typ
+                print 'Reloading %s...' % typ
                 max_index = -1
                 for filename in glob.glob(DATA_DIR + typ + '[0-9]*.txt'):
                     index = int(filename[-8:-4]) 
@@ -81,8 +82,13 @@ class InstagramCrawler():
                             if typ == 'image':
                                 self.seen[typ].add(js['id'])
                             elif typ == 'user':
-                                self.seen[typ].add(js['data']['user']['id'])
+                                users = js['data']
+                                if users:
+                                    self.seen[typ].add(users[0]['user']['id'])
                             self.nu[typ] += 1
+
+                            if self.nu[typ] % 100 == 0:
+                                print '\r%d' % self.nu[typ],
                         except:
                             pass
 
@@ -93,6 +99,7 @@ class InstagramCrawler():
                 else:
                     self.files[typ] = self.open_file(typ, max_index, 'a')
 
+                print ''
                 print max_index
                 print self.nu[typ]
                 print ''
@@ -110,19 +117,18 @@ class InstagramCrawler():
     def request(self, method='GET', host=HOST, path='', headers={}, params={}, data=None):
         self.display()
 
-        if host not in self.conn:
-            self.conn[host] = httplib.HTTPSConnection(host,timeout=TIMEOUT)
-
-        conn = self.conn[host]
-
-        if self.access_token:
-            params['access_token'] = self.access_token
-        if params:
-            path = '%s?%s' % (path, urllib.urlencode(params))
-
-
         retry = 3
         while retry:
+            if host not in self.conn:
+                self.conn[host] = httplib.HTTPSConnection(host,timeout=TIMEOUT)
+
+            conn = self.conn[host]
+
+            if self.access_token:
+                params['access_token'] = self.access_token
+            if params:
+                path = '%s?%s' % (path, urllib.urlencode(params))
+
             try:
                 if method == 'POST' and data:
                     conn.request(method, path, body=data, headers=headers)
@@ -139,9 +145,11 @@ class InstagramCrawler():
                 return r.status, r.reason, res_headers, content
             except Exception, e:
                 print e
-                self.log_error(str(e))
+                u = '%s?%s' % (path, urllib.urlencode(params))
+                self.log_error('%s - %s' % (u, str(e)))
                 retry -= 1
                 time.sleep(5)
+
                 del self.conn[host]
                 #self.conn[host] = httplib.HTTPSConnection(host)
                 self.get_token_access()
@@ -318,10 +326,12 @@ class InstagramCrawler():
             while True:
                 status, reason, r_headers, content = self.request('GET', host=API_HOST, path=path, params=params, headers=self.headers)
 
+                if status != 200: break
                 try:
                     js = json.loads(content)
                 except Exception, e:
-                    self.log_error(str(e))
+                    u = '%s?%s' % (path, urllib.urlencode(params))
+                    self.log_error('%s - %s' % (u, str(e)))
                     break
 
                 code = js['meta']['code']
@@ -344,6 +354,8 @@ class InstagramCrawler():
                 next_max_id = js['pagination']['next_max_id']
                 #next_path = '%s&max_id=%s' % (path, next_max_id)
                 params['max_id'] = next_max_id
+
+            self.venues += 1
 
 
     def get_instagram_image_id(self, foursquare_image_id):
@@ -390,10 +402,14 @@ class InstagramCrawler():
         while True:
             status, reason, r_headers, content = self.request('GET', host=API_HOST, path=path, params=params, headers=self.headers)
 
+            if status != 200: 
+                break
+         
             try:
                 js = json.loads(content)
             except Exception, e:
-                self.log_error(str(e))
+                u = '%s?%s' % (path, urllib.urlencode(params))
+                self.log_error('%s - %s' % (u, str(e)))
                 break
 
             code = js['meta']['code']
@@ -473,6 +489,7 @@ class InstagramCrawler():
             print time.ctime()
             print 'Downloaded images:', len(self.seen['image']) #self.nu['image']
             print 'Downloaded users:', len(self.seen['user']) #self.nu['user']
+            print 'Downloaded venues:', self.venues #self.nu['user']
             #print 'Downloaded friendship:', self.nu['follow']
             
             print '' 
