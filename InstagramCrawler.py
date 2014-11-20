@@ -38,7 +38,7 @@ socket.setdefaulttimeout(TIMEOUT)
 #delta_lon = 0.059
 
 start_time  = '13/11/2013'
-end_time    = '13/12/2014'
+end_time    = '13/11/2014'
 start_timestamp = int(time.mktime(datetime.datetime.strptime(start_time, "%d/%m/%Y").timetuple()))
 end_timestamp = int(time.mktime(datetime.datetime.strptime(end_time, "%d/%m/%Y").timetuple()))
 
@@ -314,10 +314,10 @@ class InstagramCrawler():
 
 
     def get_images_by_venues(self, list_foursquare_venues):
-        for foursquare_image_id in list_foursquare_venues:
-            instagram_image_id = self.get_instagram_image_id(foursquare_image_id)
+        for foursquare_venue_id in list_foursquare_venues:
+            instagram_venue_id = self.get_instagram_image_id(foursquare_venue_id)
 
-            path = '%s/%s/media/recent' % (LOCATION_SEARCH, instagram_image_id)
+            path = '%s/%s/media/recent' % (LOCATION_SEARCH, instagram_venue_id)
             params = {
                     'min_timestamp' : start_timestamp,
                     'max_timestamp' : end_timestamp,
@@ -358,9 +358,9 @@ class InstagramCrawler():
             self.venues += 1
 
 
-    def get_instagram_image_id(self, foursquare_image_id):
+    def get_instagram_venue_id(self, foursquare_venue_id):
         path = '%s/search' % LOCATION_SEARCH
-        params = {'foursquare_v2_id' : foursquare_image_id}
+        params = {'foursquare_v2_id' : foursquare_venue_id}
 
         status, reason, r_headers, content = self.request('GET', host=API_HOST, path=path, params=params, headers=self.headers)
 
