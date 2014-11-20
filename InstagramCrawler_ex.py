@@ -27,8 +27,12 @@ socket.setdefaulttimeout(TIMEOUT)
 
 start_time  = '13/11/2013'
 end_time    = '13/11/2014'
-start_timestamp = int(time.mktime(datetime.datetime.strptime(start_time, "%d/%m/%Y").timetuple()))
-end_timestamp = int(time.mktime(datetime.datetime.strptime(end_time, "%d/%m/%Y").timetuple()))
+
+start_day = datetime.datetime.strptime(start_time, "%d/%m/%Y")
+end_day = datetime.datetime.strptime(end_time, "%d/%m/%Y")
+
+start_timestamp = int(time.mktime(start_day.timetuple()))
+end_timestamp = int(time.mktime(end_day.timetuple()))
 
 oneday = 86400
 
@@ -136,6 +140,8 @@ class InstagramCrawler():
                 print ''
 
         self.ferror = open('error.txt', 'w')
+        self.url_file = open('url.txt', 'w')
+        self.n_url = 0
 
         if not os.path.exists(IMAGE_DIR):
             os.makedirs(IMAGE_DIR)
@@ -166,6 +172,8 @@ class InstagramCrawler():
                 params['access_token'] = access_token
             if params:
                 path = '%s?%s' % (path, urllib.urlencode(params))
+
+            self.log_url(path)
 
             try:
                 conn.request('GET', path, headers=headers)
@@ -318,48 +326,60 @@ class InstagramCrawler():
 
 
     def get_images_by_venues(self, list_foursquare_venues):
-        for foursquare_venue_id in list_foursquare_venues:
-            instagram_venue_id = self.get_instagram_venue_id(foursquare_venue_id)
+        end_dt = end_day
+        start_dt = end_day - datetime.timedelta(days=30)
 
-            path = '%s/%s/media/recent' % (LOCATION_SEARCH, instagram_venue_id)
-            params = {
-                    'min_timestamp' : start_timestamp,
-                    'max_timestamp' : end_timestamp,
-                    }
+        while end_dt > start_day:
+            self.venues = 0
 
-            while True:
-                status, reason, r_headers, content = self.request(path=path, params=params)
+            start_ts = int(time.mktime(start_dt.timetuple()))
+            end_ts = int(time.mktime(end_dt.timetuple()))
 
-                if status != 200: break
-                try:
-                    js = json.loads(content)
-                except Exception, e:
-                    u = '%s?%s' % (path, urllib.urlencode(params))
-                    self.log_error('%s - %s' % (u, str(e)))
-                    break
+            for foursquare_venue_id in list_foursquare_venues:
+                instagram_venue_id = self.get_instagram_venue_id(foursquare_venue_id)
 
-                code = js['meta']['code']
-                if code != 200:
-                    break
+                path = '%s/%s/media/recent' % (LOCATION_SEARCH, instagram_venue_id)
+                params = {
+                        'min_timestamp' : start_ts,
+                        'max_timestamp' : end_ts,
+                        }
 
-                for image in js['data']:
-                    if image['type'] != 'image': continue
+                while True:
+                    status, reason, r_headers, content = self.request(path=path, params=params)
 
-                    if not self.handle_image(image):
-                        continue
+                    if status != 200: break
+                    try:
+                        js = json.loads(content)
+                    except Exception, e:
+                        u = '%s?%s' % (path, urllib.urlencode(params))
+                        self.log_error('%s - %s' % (u, str(e)))
+                        break
 
-                    user = image['user']
-                    self.handle_user(user)
+                    code = js['meta']['code']
+                    if code != 200:
+                        break
+
+                    for image in js['data']:
+                        if image['type'] != 'image': continue
+
+                        if not self.handle_image(image):
+                            continue
+
+                        user = image['user']
+                        self.handle_user(user)
 
 
-                if not js.get('pagination'):
-                    break
-                
-                next_max_id = js['pagination']['next_max_id']
-                #next_path = '%s&max_id=%s' % (path, next_max_id)
-                params['max_id'] = next_max_id
+                    if not js.get('pagination'):
+                        break
+                    
+                    next_max_id = js['pagination']['next_max_id']
+                    #next_path = '%s&max_id=%s' % (path, next_max_id)
+                    params['max_id'] = next_max_id
 
-            self.venues += 1
+                self.venues += 1
+
+            end_dt = start_dt
+            start_dt = max(start_dt - datetime.timedelta(days=30), start_day)
 
 
     def get_instagram_venue_id(self, foursquare_venue_id):
@@ -444,6 +464,17 @@ class InstagramCrawler():
         self.ferror.write('%s : %s\n' % (time.ctime(), msg))
         self.ferror.flush()
         os.fsync(self.ferror.fileno())
+
+
+    def log_url(self, url):
+        if self.n_url == 1000:
+            self.url_file.close()
+            self.url_file = open('url.txt', 'w')
+            self.n_url = 0
+
+        self.n_url += 1
+        self.url_file.write('%s - %s\n' % (time.ctime(), url))
+        self.url_file.flush()
 
 
     def display(self):
