@@ -21,7 +21,7 @@ ENTITY_TYPES = ['image', 'user']
 MAX_N_ITEM = 10000
 TO_FLUSH = 100
 
-SLEEP = 0.35
+SLEEP = 0.2
 TIMEOUT = 60
 socket.setdefaulttimeout(TIMEOUT)
 
@@ -63,7 +63,29 @@ class InstagramCrawler():
                     'access_token' : '',
                     'conn' : None,
                     'headers' : {},
-                }
+                },
+                {
+                    'client_id' : 'cbc529485af940c9a2bd01cd878f4bcc',
+                    'client_secret' : '20233a5df2314f59bc541fc83477f5f4',
+                    'redirect_uri' : 'https://www.ntu.edu.sg/',
+                    'username' : 'tuananh1234',
+                    'password' : 'tuananh1234',
+                    
+                    'access_token' : '',
+                    'conn' : None,
+                    'headers' : {},
+                },
+                {
+                    'client_id' : '9d3a9aeb20014acda21eee6d10586e2f',
+                    'client_secret' : 'e5a4dede5d0a4a0694c3672b2f0cceba',
+                    'redirect_uri' : 'https://www.ntu.edu.sg/',
+                    'username' : 'tuananh1235',
+                    'password' : 'tuananh1235',
+                    
+                    'access_token' : '',
+                    'conn' : None,
+                    'headers' : {},
+                },
                 ]
 
         self.seen = {}
