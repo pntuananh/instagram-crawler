@@ -105,6 +105,8 @@ class InstagramCrawler():
                 print ''
 
         self.ferror = open('error.txt', 'w')
+        self.url_file = open('url.txt', 'w')
+        self.n_url = 0
 
         if not os.path.exists(IMAGE_DIR):
             os.makedirs(IMAGE_DIR)
@@ -128,6 +130,8 @@ class InstagramCrawler():
                 params['access_token'] = self.access_token
             if params:
                 path = '%s?%s' % (path, urllib.urlencode(params))
+
+            self.log_url('https://' + host + path)
 
             try:
                 if method == 'POST' and data:
@@ -315,7 +319,7 @@ class InstagramCrawler():
 
     def get_images_by_venues(self, list_foursquare_venues):
         for foursquare_venue_id in list_foursquare_venues:
-            instagram_venue_id = self.get_instagram_image_id(foursquare_venue_id)
+            instagram_venue_id = self.get_instagram_venue_id(foursquare_venue_id)
 
             path = '%s/%s/media/recent' % (LOCATION_SEARCH, instagram_venue_id)
             params = {
@@ -326,7 +330,10 @@ class InstagramCrawler():
             while True:
                 status, reason, r_headers, content = self.request('GET', host=API_HOST, path=path, params=params, headers=self.headers)
 
-                if status != 200: break
+                if status != 200: 
+                    u = '%s?min_timestamp=%d&max_timestamp=%d' % (path, start_timestamp, end_timestamp)
+                    self.log_error('%s - %d [%s]' % (u, status, reason))
+                    break
                 try:
                     js = json.loads(content)
                 except Exception, e:
@@ -365,6 +372,8 @@ class InstagramCrawler():
         status, reason, r_headers, content = self.request('GET', host=API_HOST, path=path, params=params, headers=self.headers)
 
         if status != 200:
+            u = '%s?foursquare_v2_id=%s' % (path, foursquare_venue_id)
+            self.log_error('%s - %d [%s]' % (u, status, reason))
             return ''
 
         js = json.loads(content)
@@ -403,6 +412,8 @@ class InstagramCrawler():
             status, reason, r_headers, content = self.request('GET', host=API_HOST, path=path, params=params, headers=self.headers)
 
             if status != 200: 
+                u = '%s?min_timestamp=%d&max_timestamp=%d' % (path, start_timestamp, end_timestamp)
+                self.log_error('%s - %d [%s]' % (u, status, reason))
                 break
          
             try:
@@ -481,6 +492,16 @@ class InstagramCrawler():
         self.ferror.write('%s : %s\n' % (time.ctime(), msg))
         self.ferror.flush()
         os.fsync(self.ferror.fileno())
+
+    def log_url(self, url):
+        if self.n_url == 1000:
+            self.url_file.close()
+            self.url_file = open('url.txt', 'w')
+            self.n_url = 0
+
+        self.n_url += 1
+        self.url_file.write('%s - %s\n' % (time.ctime(), url))
+        self.url_file.flush()
 
 
     def display(self):
