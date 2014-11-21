@@ -1,5 +1,6 @@
 import httplib, urllib, urllib2, socket
 import myjson as json
+import ujson
 import time, datetime
 import os, thread, glob
 import sys
@@ -21,7 +22,7 @@ ENTITY_TYPES = ['image', 'user']
 MAX_N_ITEM = 10000
 TO_FLUSH = 100
 
-SLEEP = 0.2
+SLEEP = 0.1
 TIMEOUT = 60
 socket.setdefaulttimeout(TIMEOUT)
 
@@ -113,16 +114,19 @@ class InstagramCrawler():
 
                     for line in self.open_file(typ, index, 'r'):
                         try:
-                            js =json.loads(line)
+                            #js = json.loads(line)
+                            js = ujson.loads(line)
                             if typ == 'image':
-                                self.seen[typ].add(js['id'])
+                                #self.seen[typ].add(js['id'])
+                                self.seen[typ].add(js['id'].encode())
                             elif typ == 'user':
                                 users = js['data']
                                 if users:
-                                    self.seen[typ].add(users[0]['user']['id'])
+                                    #self.seen[typ].add(users[0]['user']['id'])
+                                    self.seen[typ].add(users[0]['user']['id'].encode())
                             self.nu[typ] += 1
 
-                            if self.nu[typ] % 100 == 0:
+                            if self.nu[typ] % 1000 == 0:
                                 print '\r%d' % self.nu[typ],
                         except:
                             pass
@@ -467,14 +471,13 @@ class InstagramCrawler():
 
 
     def log_url(self, url):
-        if self.n_url == 1000:
+        if self.n_url == 10000:
             self.url_file.close()
             self.url_file = open('url.txt', 'w')
             self.n_url = 0
 
         self.n_url += 1
         self.url_file.write('%s - %s\n' % (time.ctime(), url))
-        self.url_file.flush()
 
 
     def display(self):
