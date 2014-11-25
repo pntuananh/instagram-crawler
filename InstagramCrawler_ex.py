@@ -220,7 +220,7 @@ class InstagramCrawler():
         headers['Cookie'] += '; mid=%s' % mid
 
         headers['Referer'] = url 
-        data = 'csrfmiddlewaretoken=%s&username=pntuananh&password=swordfish' % csrftoken
+        data = 'csrfmiddlewaretoken=%s&username=%s&password=%s' % (csrftoken, client['username'], client['password'])
 
         conn.request('POST', path, headers=headers, body=data)
         r = conn.getresponse()

@@ -22,7 +22,7 @@ ENTITY_TYPES = ['image', 'user']
 MAX_N_ITEM = 10000
 TO_FLUSH = 100
 
-N_CLIENTS = 2
+N_CLIENTS = 3
 
 SLEEP = 0.2
 TIMEOUT = 60
@@ -48,52 +48,7 @@ def convert(s):
 class InstagramCrawler():
 
     def __init__(self, reload=False):
-        self.clients = [
-                {
-                    'client_id' : '9936fc4ff90f4344a2384c35766525c6',
-                    'client_secret' : '5980acbbca814e4f94c3ff19beef7673',
-                    'redirect_uri' : 'https://www.ntu.edu.sg/',
-                    'username' : 'pntuananh',
-                    'password' : 'swordfish',
-
-                    'access_token' : '',
-                    'conn' : None,
-                    'headers' : {},
-                },
-                {
-                    'client_id' : '361adb10df694262b59983480fac820c',
-                    'client_secret' : '9f8f7aec6ffb4723ac2b55be517da325',
-                    'redirect_uri' : 'https://www.ntu.edu.sg/',
-                    'username' : 'tuananh2308',
-                    'password' : 'tuananh2308',
-                    
-                    'access_token' : '',
-                    'conn' : None,
-                    'headers' : {},
-                },
-                {
-                    'client_id' : 'cbc529485af940c9a2bd01cd878f4bcc',
-                    'client_secret' : '20233a5df2314f59bc541fc83477f5f4',
-                    'redirect_uri' : 'https://www.ntu.edu.sg/',
-                    'username' : 'tuananh1234',
-                    'password' : 'tuananh1234',
-                    
-                    'access_token' : '',
-                    'conn' : None,
-                    'headers' : {},
-                },
-                {
-                    'client_id' : '9d3a9aeb20014acda21eee6d10586e2f',
-                    'client_secret' : 'e5a4dede5d0a4a0694c3672b2f0cceba',
-                    'redirect_uri' : 'https://www.ntu.edu.sg/',
-                    'username' : 'tuananh1235',
-                    'password' : 'tuananh1235',
-                    
-                    'access_token' : '',
-                    'conn' : None,
-                    'headers' : {},
-                },
-                ]
+        self.read_clients('clients.txt')
 
         self.seen = {}
         self.mtx_seen = {}
@@ -169,7 +124,30 @@ class InstagramCrawler():
 
         #self.current_client = 0
 
-    
+    def read_clients(self, filename):
+        f = open(filename)
+        s = f.read()
+        f.close()
+
+        parts = s.split('\n\n')
+        self.clients = []
+        for p in parts:
+            cl = {}
+            for line in p.split('\n'):
+                if not line: continue
+                if line[0] == '#': continue
+                key, value = line.split(' : ')
+                cl[key] = value
+
+            if not cl: continue
+
+            cl['access_token'] = ''
+            cl['conn'] = None
+            cl['headers'] = {}
+
+            self.clients.append(cl)
+
+
     def get_client(self):
         while True:
             self.mtx_client_queue.acquire()
@@ -269,7 +247,7 @@ class InstagramCrawler():
         headers['Cookie'] += '; mid=%s' % mid
 
         headers['Referer'] = url 
-        data = 'csrfmiddlewaretoken=%s&username=pntuananh&password=swordfish' % csrftoken
+        data = 'csrfmiddlewaretoken=%s&username=%s&password=%s' % (csrftoken, client['username'], client['password'])
 
         conn.request('POST', path, headers=headers, body=data)
         r = conn.getresponse()
@@ -373,55 +351,63 @@ class InstagramCrawler():
         self.mtx_io.release()
 
 
-    def get_link(self):
+    def get_venue(self):
+        if not self.queue:
+            return None
+
+        self.mtx_queue.acquire()
+        foursquare_venue_id, start_dt, end_dt = self.queue.popleft()
+        self.venues += 1
+        self.mtx_queue.release()
+
+        start_ts = int(time.mktime(start_dt.timetuple()))
+        end_ts = int(time.mktime(end_dt.timetuple()))
+
+        end_dt = start_dt
+        start_dt = max(start_dt - datetime.timedelta(days=30), start_day)
+
+        if end_dt > start_day:
+            self.mtx_queue.acquire()
+            self.queue.append((foursquare_venue_id, start_dt, end_dt))
+            self.mtx_queue.release()
+            
+        return foursquare_venue_id, start_ts, end_ts
+
+
+    def create_queue(self, list_foursquare_venues):
+        self.queue = deque()
+
         end_dt = end_day
         start_dt = end_day - datetime.timedelta(days=30)
 
-        while end_dt > start_day:
-            self.venues = 0
-            queue = deque(self.queue)
-
-            start_ts = int(time.mktime(start_dt.timetuple()))
-            end_ts = int(time.mktime(end_dt.timetuple()))
-
-            #for foursquare_venue_id in list_foursquare_venues:
-            while queue:
-                self.mtx_queue.acquire()
-                foursquare_venue_id = queue.popleft()
-                self.mtx_queue.release()
-
-                instagram_venue_id = self.get_instagram_venue_id(foursquare_venue_id)
-
-                path = '%s/%s/media/recent' % (LOCATION_SEARCH, instagram_venue_id)
-                params = {
-                        'min_timestamp' : start_ts,
-                        'max_timestamp' : end_ts,
-                        }
-
-                yield(path, params)
-
-                self.venues += 1
-
-            end_dt = start_dt
-            start_dt = max(start_dt - datetime.timedelta(days=30), start_day)
+        for foursquare_venue_id in list_foursquare_venues:
+            self.queue.append((foursquare_venue_id, start_dt, end_dt))
 
 
     def get_images_by_venues(self, list_foursquare_venues):
-        self.queue = list_foursquare_venues
+        self.create_queue(list_foursquare_venues)
 
-        for _ in range(N_CLIENTS):
-            thread.start_new_thread(self.child_thread, ())
+        for i in range(N_CLIENTS):
+            thread.start_new_thread(self.child_thread, (i,))
 
         self.display()
 
 
-    def child_thread(self):
+    def child_thread(self, i):
         while True:
-            link = self.get_link().next()
+            ven = self.get_venue()
 
-            if not link: break
+            if not ven: break
 
-            path, params = link
+            foursquare_venue_id, start_ts, end_ts = ven
+
+            instagram_venue_id = self.get_instagram_venue_id(foursquare_venue_id)
+
+            path = '%s/%s/media/recent' % (LOCATION_SEARCH, instagram_venue_id)
+            params = {
+                    'min_timestamp' : start_ts,
+                    'max_timestamp' : end_ts,
+                    }
 
             while True:
                 status, reason, r_headers, content = self.request(path=path, params=params)
