@@ -213,7 +213,13 @@ class InstagramCrawler():
         client = self.clients[cl_idx]
         client['access_token'] = None
 
-        conn = httplib.HTTPSConnection(HOST, timeout=TIMEOUT)
+        while True:
+            try:
+                conn = httplib.HTTPSConnection(HOST, timeout=TIMEOUT)
+                break
+            except:
+                time.sleep(1)
+
         path = '/oauth/authorize/?client_id=%s&redirect_uri=%s&response_type=code' % (client['client_id'], urllib.quote(client['redirect_uri'])) 
         headers = client['headers'] = {}
 
@@ -273,7 +279,13 @@ class InstagramCrawler():
 
         path = '/oauth/access_token'
 
-        conn = client['conn'] = httplib.HTTPSConnection(API_HOST, timeout=TIMEOUT)
+        while True:
+            try:
+                conn = client['conn'] = httplib.HTTPSConnection(API_HOST, timeout=TIMEOUT)
+                break
+            except:
+                time.sleep(1)
+
         conn.request('POST', path, body=urllib.urlencode(client_params))
 
         r = conn.getresponse()
@@ -312,7 +324,10 @@ class InstagramCrawler():
                 os.makedirs(directory)
             
             filename = '%s/%s' % (directory,filename)
-            open(filename, 'wb').write(image)
+            try:
+                open(filename, 'wb').write(image)
+            except:
+                pass
 
 
     def write(self, typ, item):
