@@ -538,7 +538,7 @@ class InstagramCrawler():
     def log_url(self, url):
         self.mtx_io.acquire()
 
-        if self.n_url == 1000:
+        if self.n_url == 10000:
             self.url_file.close()
             self.url_file = open('url.txt', 'w')
             self.n_url = 0
