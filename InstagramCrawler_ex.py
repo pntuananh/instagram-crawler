@@ -46,6 +46,7 @@ def convert(s):
 class InstagramCrawler():
 
     def __init__(self, reload=False):
+        self.read_clients('clients.txt')
         self.clients = [
                 {
                     'client_id' : '9936fc4ff90f4344a2384c35766525c6',
@@ -157,6 +158,30 @@ class InstagramCrawler():
         #thread.start_new_thread(self.display, ())
 
         self.current_client = 0
+
+
+    def read_clients(self, filename):
+        f = open(filename)
+        s = f.read()
+        f.close()
+
+        parts = s.split('\n\n')
+        self.clients = []
+        for p in parts:
+            cl = {}
+            for line in p.split('\n'):
+                if not line: continue
+                if line[0] == '#': continue
+                key, value = line.split(' : ')
+                cl[key] = value
+
+            if not cl: continue
+
+            cl['access_token'] = ''
+            cl['conn'] = None
+            cl['headers'] = {}
+
+            self.clients.append(cl)
 
 
     def request(self, path='', params={}):
