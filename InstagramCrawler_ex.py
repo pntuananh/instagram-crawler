@@ -515,7 +515,7 @@ if __name__ == "__main__":
 
     list_foursquare_venues = []
     for line in open('VenueInfo_Coordinate.txt'):
-        venue = line.split('\t')[0]
+        venue = line.strip('\n')split('\t')[0]
         list_foursquare_venues += [venue]
 
     InstagramCrawler(reload=reload).get_images_by_venues(list_foursquare_venues)

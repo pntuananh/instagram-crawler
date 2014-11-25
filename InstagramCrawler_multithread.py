@@ -1,5 +1,6 @@
 import httplib, urllib, urllib2, socket
 import myjson as json
+import ujson
 import time, datetime
 import os, thread, threading, glob
 import sys
@@ -117,7 +118,8 @@ class InstagramCrawler():
 
                     for line in self.open_file(typ, index, 'r'):
                         try:
-                            js =json.loads(line)
+                            #js =json.loads(line)
+                            js = ujson.loads(line)
                             if typ == 'image':
                                 self.seen[typ].add(js['id'])
                             elif typ == 'user':
@@ -126,7 +128,7 @@ class InstagramCrawler():
                                     self.seen[typ].add(users[0]['user']['id'])
                             self.nu[typ] += 1
 
-                            if self.nu[typ] % 100 == 0:
+                            if self.nu[typ] % 1000 == 0:
                                 print '\r%d' % self.nu[typ],
                         except:
                             pass
@@ -585,7 +587,7 @@ if __name__ == "__main__":
 
     list_foursquare_venues = []
     for line in open('VenueInfo_Coordinate.txt'):
-        venue = line.split('\t')[0]
+        venue = line.strip('\n').split('\t')[0]
         list_foursquare_venues += [venue]
 
     InstagramCrawler(reload=reload).get_images_by_venues(list_foursquare_venues)
