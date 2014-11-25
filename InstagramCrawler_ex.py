@@ -47,52 +47,6 @@ class InstagramCrawler():
 
     def __init__(self, reload=False):
         self.read_clients('clients.txt')
-        self.clients = [
-                {
-                    'client_id' : '9936fc4ff90f4344a2384c35766525c6',
-                    'client_secret' : '5980acbbca814e4f94c3ff19beef7673',
-                    'redirect_uri' : 'https://www.ntu.edu.sg/',
-                    'username' : 'pntuananh',
-                    'password' : 'swordfish',
-
-                    'access_token' : '',
-                    'conn' : None,
-                    'headers' : {},
-                },
-                {
-                    'client_id' : '361adb10df694262b59983480fac820c',
-                    'client_secret' : '9f8f7aec6ffb4723ac2b55be517da325',
-                    'redirect_uri' : 'https://www.ntu.edu.sg/',
-                    'username' : 'tuananh2308',
-                    'password' : 'tuananh2308',
-                    
-                    'access_token' : '',
-                    'conn' : None,
-                    'headers' : {},
-                },
-                {
-                    'client_id' : 'cbc529485af940c9a2bd01cd878f4bcc',
-                    'client_secret' : '20233a5df2314f59bc541fc83477f5f4',
-                    'redirect_uri' : 'https://www.ntu.edu.sg/',
-                    'username' : 'tuananh1234',
-                    'password' : 'tuananh1234',
-                    
-                    'access_token' : '',
-                    'conn' : None,
-                    'headers' : {},
-                },
-                {
-                    'client_id' : '9d3a9aeb20014acda21eee6d10586e2f',
-                    'client_secret' : 'e5a4dede5d0a4a0694c3672b2f0cceba',
-                    'redirect_uri' : 'https://www.ntu.edu.sg/',
-                    'username' : 'tuananh1235',
-                    'password' : 'tuananh1235',
-                    
-                    'access_token' : '',
-                    'conn' : None,
-                    'headers' : {},
-                },
-                ]
 
         self.seen = {}
         self.nu = {}
