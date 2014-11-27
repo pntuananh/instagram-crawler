@@ -22,7 +22,7 @@ ENTITY_TYPES = ['image', 'user']
 MAX_N_ITEM = 10000
 TO_FLUSH = 100
 
-N_CLIENTS = 3
+N_CLIENTS = 6
 
 SLEEP = 0.2
 TIMEOUT = 60
