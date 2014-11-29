@@ -76,11 +76,11 @@ class InstagramCrawler():
                             #js =json.loads(line)
                             js = ujson.loads(line)
                             if typ == 'image':
-                                self.seen[typ].add(js['id'])
+                                self.seen[typ].add(js['id'].encode())
                             elif typ == 'user':
                                 users = js['data']
                                 if users:
-                                    self.seen[typ].add(users[0]['user']['id'])
+                                    self.seen[typ].add(users[0]['user']['id'].encode())
                             self.nu[typ] += 1
 
                             if self.nu[typ] % 1000 == 0:
@@ -224,19 +224,19 @@ class InstagramCrawler():
 
         client = self.clients[cl_idx]
         client['access_token'] = None
-
-        conn = httplib.HTTPSConnection(HOST, timeout=TIMEOUT)
-        path = '/oauth/authorize/?client_id=%s&redirect_uri=%s&response_type=code' % (client['client_id'], urllib.quote(client['redirect_uri'])) 
         headers = client['headers'] = {}
 
+        conn = httplib.HTTPSConnection(HOST, timeout=TIMEOUT)
+
+        path = '/oauth/authorize/?client_id=%s&redirect_uri=%s&response_type=code' % (client['client_id'], urllib.quote(client['redirect_uri'])) 
         conn.request('GET', path)
         r = conn.getresponse()
         r.read()
 
         url = r.getheader('location')
         path = url[url.find('/', 8):]
-
         csrftoken = r.getheader('set-cookie').split('csrftoken=')[1].split(';')[0]
+
         headers['Cookie'] = 'csrftoken=%s' % csrftoken
 
         conn.request('GET', path, headers=headers)
