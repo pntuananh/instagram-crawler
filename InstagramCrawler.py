@@ -530,3 +530,6 @@ if __name__ == "__main__":
     InstagramCrawler(reload=reload).get_images_by_venues(list_foursquare_venues)
 
     sys.exit()
+
+
+
