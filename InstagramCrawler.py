@@ -53,9 +53,9 @@ def convert(s):
 class InstagramCrawler():
 
     def __init__(self, reload=False):
-        self.client_id = '9936fc4ff90f4344a2384c35766525c6'
-        self.client_secret = '5980acbbca814e4f94c3ff19beef7673'
-        self.redirect_uri = 'https://www.ntu.edu.sg/'
+        self.client_id = ''
+        self.client_secret = ''
+        self.redirect_uri = ''
 
         self.seen = {}
         self.nu = {}
