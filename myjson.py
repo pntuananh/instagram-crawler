@@ -1,5 +1,5 @@
 import json
-
+ 
 def _decode_list(data):
     rv = []
     for item in data:
