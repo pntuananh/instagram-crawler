@@ -18,6 +18,8 @@ IMAGE_DIR = DATA_DIR + 'images/'
 
 ENTITY_TYPES = ['image', 'user'] #, 'follow']
 
+#test
+
 MAX_N_ITEM = 10000
 TO_FLUSH = 100
 
